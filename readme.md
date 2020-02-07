@@ -7,4 +7,8 @@ requirments
 geatpy
 
 ### 理论
+WuHan  
+SEIR 
+$$ \frac{dS}{dt} = -\beta \frac{IS}{N} $$
+$$ 
 

@@ -1,3 +1,0 @@
-
-import geatpy as ea 
-
