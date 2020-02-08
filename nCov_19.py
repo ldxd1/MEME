@@ -98,11 +98,11 @@ class SEIR(object):
     build up an SEIR model for 19_nCoV plague,help with projects following:
     https://github.com/XuelongSun/Dynamic-Model-of-Infectious-Diseases
     """
-    def __init__(self):
+    def __init__(self, T=12):
         # population
         self.N = 14186500  # data from the website
         # simuation Time / Day
-        self.T = 12
+        self.T = T
         # susceptiable ratio
         self.s = np.zeros([self.T])
         # exposed ratio
@@ -113,16 +113,16 @@ class SEIR(object):
         self.r = np.zeros([self.T])
 
         # contact rate
-        self.lamda = 0.5  # = 感染者日均接触人数 * 接触传染概率 / 总人数
+        self.lamda = 0.54  # = 感染者日均接触人数 * 接触传染概率 / 总人数
         # recover rate
-        self.gamma = 0.0821
+        self.gamma = 0.1
         # exposed period
         self.sigma = 1 / 7
 
         # initial infective people
-        self.i[0] = 2 * 572.0 / self.N
+        self.i[0] = 572.0 / self.N
         self.s[0] = (1e7 + 4e6) / self.N
-        self.e[0] = 8000.0 / self.N
+        self.e[0] = 1000.0 / self.N
     
 
     def deduce(self):
@@ -139,7 +139,7 @@ class SEIR(object):
         self.e *= self.N
         self.i *= self.N
         self.r *= self.N
-        print(self.i)
+    
         fig, ax = plt.subplots(figsize=(10,6))
         # ax.plot(self.s, c='b', lw=2, label='S')
         ax.plot(self.e, c='orange', lw=2, label='E')
@@ -157,16 +157,22 @@ def train_process(model, gt):
     def aim(Phen):
         # ld = Phen[:, [0]] # 取出第1列，得到所有个体的第1个自变量
         # gm = Phen[:, [1]] # 取出第2列，得到所有个体的第2个自变量
-        fits = np.zeros([model.T])
-        for idx in len(Phen):
-            model.lamda = Phen[idx][0]
+        fits = np.zeros((len(Phen),1))  # 所有个体的健康程度评估
+        for idx in range(len(Phen)):
+            model.lamda = Phen[idx][0] 
             model.gamma = Phen[idx][1]
             model.deduce()
+            # print(np.array(model.i * model.N))
             
-            fits[idx] = residual_square(np.array(model.i), np.array(gt['confirmedCount']))
+            infective_fitness = residual_square(
+                np.array(model.i * model.N),  np.array(gt['confirmedCount']))
+            recov_fitness = residual_square(
+                np.array(model.r * model.N),  np.array(gt['deadCount']+gt['curedCount']))
+            
+            fits[idx] = infective_fitness + 10 * recov_fitness
+       
         return fits
             
-
 
     # settings
     lamda = [0, 1]                   # 自变量范围
@@ -174,13 +180,13 @@ def train_process(model, gt):
 
     b1 = [0, 0]                    # 自变量边界, 1 表示包含边界， 0 表示不包含边界
     b2 = [0, 0]
-    varTypes = np.array([0])       # 自变量的类型，0表示连续，1表示离散
+    varTypes = np.array([0, 0])       # 自变量的类型，0表示连续，1表示离散
     Encoding = 'BG'                # 'BG'表示采用二进制/格雷编码
-    codes = [1]                    # 变量的编码方式，2个变量均使用格雷编码
-    precisions =[4]                # 变量的编码精度
-    scales = [0]                   # 采用算术刻度
+    codes = [1, 1]                    # 变量的编码方式，2个变量均使用格雷编码
+    precisions =[6, 6]                # 变量的编码精度
+    scales = [0, 0]                   # 采用算术刻度
     ranges=np.vstack([lamda, gamma]).T       # 生成自变量的范围矩阵
-    borders=np.vstack([b1, ]).T      # 生成自变量的边界矩阵
+    borders=np.vstack([b1, b2]).T      # 生成自变量的边界矩阵
 
     
     # params of GA
@@ -197,12 +203,13 @@ def train_process(model, gt):
     start_time = time.time()                             # 开始计时
     Chrom = ea.crtbp(NIND, Lind)                         # 生成种群染色体矩阵
     variable = ea.bs2real(Chrom, FieldD)                 # 对初始种群进行解码
-    ObjV = aim(variable)                                 # 计算初始种群个体的目标函数值
-    best_ind = np.argmax(ObjV)                         # 计算当代最优个体的序号
+    ObjV = aim(variable)          # 计算初始种群个体的目标函数值
+    best_ind = np.argmin(ObjV)                         # 计算当代最优个体的序号
 
 
     # 开始进化
     for gen in range(MAXGEN):
+        
         FitnV = ea.ranking(maxormins * ObjV)               # 根据目标函数大小分配适应度值(由于遵循目标最小化约定，因此最大化问题要对目标函数值乘上-1)
         SelCh=Chrom[ea.selecting('rws', FitnV, NIND-1), :] # 选择，采用'rws'轮盘赌选择
         SelCh=ea.recombin('xovsp', SelCh, 0.7)           # 重组(采用两点交叉方式，交叉概率为0.7)
@@ -212,12 +219,30 @@ def train_process(model, gt):
         variables = ea.bs2real(Chrom, FieldD)             # 对育种种群进行解码(二进制转十进制)
         ObjV = aim(variables)                             # 求育种个体的目标函数值
         # 记录
-        best_ind = np.argmax(ObjV)                       # 计算当代最优个体的序号
+        best_ind = np.argmin(ObjV)                       # 计算当代最优个体的序号
         obj_trace[gen, 0] = np.sum(ObjV) / NIND          # 记录当代种群的目标函数均值
         obj_trace[gen, 1] = ObjV[best_ind]               # 记录当代种群最优个体目标函数值
         var_trace[gen, :] = Chrom[best_ind, :]           # 记录当代种群最优个体的变量值
     # 进化完成
     end_time = time.time() # 结束计时
+
+    # 绘制图像
+    ea.trcplot(obj_trace, [['种群个体平均目标函数值', '种群最优个体目标函数值']])
+
+    best_gen = np.argmin(obj_trace[:, [1]])
+    print('最优解的目标函数值: ', obj_trace[best_gen, 1])
+    opt_variable = ea.bs2real(var_trace[[best_gen], :], FieldD)
+    print('最优解的决策变量为：')
+    for i in range(opt_variable.shape[1]):
+        print(opt_variable[0, i])
+    print('用时: ', end_time - start_time, '秒')
+    
+    model.lamda = opt_variable[0, 0]
+    model.gamma = opt_variable[0, 1]
+    model.deduce()
+    model.draw_curves()
+
+    return opt_variable[0]
 
 
 
@@ -232,5 +257,13 @@ if __name__ == '__main__':
     # model.deduce()
     # fitness = residual_square(np.array(model.i), np.array(data_day['confirmedCount']))
     # model.draw_curves()
-    train_process(model, data_day)
+    opt_vars = train_process(model, data_day)
+
+    test_model = SEIR(T=110)
+    test_model.lamda = opt_vars[0]
+    test_model.gamma = opt_vars[1]
+    test_model.deduce()
+    test_model.draw_curves()
+    
+    
     
