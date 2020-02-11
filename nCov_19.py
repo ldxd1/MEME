@@ -14,7 +14,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import geatpy as ea
 from utils import residual_square
-
+import math
 
 def rough_data_clean():
     time_pt = re.compile(r'[0-9]') 
@@ -120,9 +120,9 @@ class SEIR(object):
         self.sigma = 1 / 7
 
         # initial infective people
-        self.i[0] = 572.0 / self.N
+        self.i[0] = 1.0 / self.N
         self.s[0] = (1e7 + 4e6) / self.N
-        self.e[0] = 1000.0 / self.N
+        self.e[0] = 100.0 / self.N
     
 
     def deduce(self):
@@ -160,19 +160,19 @@ def train_process(model, gt):
         fits = np.zeros((len(Phen),1))  # 所有个体的健康程度评估
         for idx in range(len(Phen)):
             model.lamda = Phen[idx][0] 
-            model.gamma = Phen[idx][1]
+            model.gamma = Phen[idx][1] 
             model.deduce()
             # print(np.array(model.i * model.N))
-            
+            exam_day = 50
             infective_fitness = residual_square(
-                np.array(model.i * model.N),  np.array(gt['confirmedCount']))
+                np.array(model.i[exam_day:exam_day+12] * model.N),  np.array(gt['confirmedCount']))
             recov_fitness = residual_square(
-                np.array(model.r * model.N),  np.array(gt['deadCount']+gt['curedCount']))
+                np.array(model.r[exam_day: exam_day+12] * model.N),  np.array(gt['deadCount']+gt['curedCount']))
             
-            fits[idx] = infective_fitness + 10 * recov_fitness
+            fits[idx] = infective_fitness + recov_fitness
        
         return fits
-            
+          
 
     # settings
     lamda = [0, 1]                   # 自变量范围
@@ -244,7 +244,14 @@ def train_process(model, gt):
 
     return opt_variable[0]
 
-
+def get_R0(t, Yt, Tg, Ti):
+    # t: 初始病发至今，某一时刻
+    # Yt：t时刻对应病患数
+    # Tg: 潜伏期时长
+    # Ti: 感染期时长
+    lamda = math.log(Yt) / t
+    r0 = (1 + Tg * lamda) * (1 + Ti * lamda)
+    return r0
 
 if __name__ == '__main__':
     data = detail_data_clean('湖北','武汉')
@@ -253,17 +260,20 @@ if __name__ == '__main__':
     data_day = data.groupby(by=['time']).head(1).reset_index(drop=True)
     print(data_day)
 
-    model = SEIR()
+    model = SEIR(T=110)
     # model.deduce()
     # fitness = residual_square(np.array(model.i), np.array(data_day['confirmedCount']))
     # model.draw_curves()
     opt_vars = train_process(model, data_day)
 
-    test_model = SEIR(T=110)
-    test_model.lamda = opt_vars[0]
-    test_model.gamma = opt_vars[1]
-    test_model.deduce()
-    test_model.draw_curves()
+    # test_model = SEIR(T=110)
+    # test_model.lamda = opt_vars[0]
+    # test_model.gamma = opt_vars[1]
+    # test_model.deduce()
+    # test_model.draw_curves()
+
+    R0 = get_R0(40, 572, 7, 1)
+    print('基本再生指数：', R0)
     
     
     

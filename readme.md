@@ -9,6 +9,7 @@ geatpy
 ### 理论
 WuHan  
 SEIR 
-$$ \frac{dS}{dt} = -\beta \frac{IS}{N} $$
-$$ 
+改进
+1, i 被确诊断，则被隔离，那么
+
 
