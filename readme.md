@@ -1,15 +1,25 @@
-MeMetic Algorithm
+MEME: The 19 nCov virus project
 
-本次实验通过验证不同的局部搜索策略带来的结果影响。这是一个开放性探索的项目，目标是了解文化基因算法和探索一些基本的进化算法原理，应用等。
+基于数学模型和优化方法建立武汉病毒的传染病学模型预测
+
+患病人数资料由这个项目获取
+https://github.com/globalcitizen/2019-wuhan-coronavirus-data
+
+感谢 Wang Peng, Northwestern Polytical University 的贡献
 
 requirments
 （ 用使的Python 平台一些开源包）
 geatpy
 
-### 理论
-WuHan  
-SEIR 
+### 理论  
+基于SEIR 模型
 改进
-1, i 被确诊断，则被隔离，那么
+
+基于SEIR基础上，做了如下考虑：
+* 考虑病毒在潜伏期也具有相同传染性
+* 考虑确诊患者在医院进行了较好的隔离，这部分患者比率传染性配比了隔离系数
+* 取潜伏期平均日7日计算
+* 使用带参数的s型函数拟合传染率的下降规律，来模拟日益完善的防疫力量
+* 用演化计算优化拟合参数，结果显示目前趋势相当于模型发病前36天的趋势
 
 
