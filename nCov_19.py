@@ -113,85 +113,166 @@ class SEIR(object):
         self.r = np.zeros([self.T])
 
         # contact rate
-        self.lamda = 0.54  # = 感染者日均接触人数 * 接触传染概率 / 总人数
-        # recover rate
-        self.gamma = 0.1
-        # exposed period
+        self.lamda = 0  # = 感染者日均接触人数 * 接触传染概率 / 总人数
+        self.omiga = 0.1 # effect the lower rate of the lamda
+        self.d = 20 # deviation of time
+        # isolate rate 患病的人中被隔离的比率 (zf措施)
+        self.beta = 0.8
+        # remove rate # 死亡率+治愈率
+        self.gamma = 0.3
+        # exposed period # 平均潜伏期的倒数
         self.sigma = 1 / 7
 
         # initial infective people
         self.i[0] = 1.0 / self.N
         self.s[0] = (1e7 + 4e6) / self.N
-        self.e[0] = 100.0 / self.N
+        self.e[0] = 10.0 / self.N
     
-
     def deduce(self):
-
         for t in range(self.T-1):
-            self.s[t + 1] = self.s[t] - self.lamda * self.s[t] * self.i[t]
-            self.e[t + 1] = self.e[t] + self.lamda * self.s[t] * self.i[t] - self.sigma * self.e[t]
+            self.lamda = 1 - 1 / (1 + math.exp(-1 * self.omiga * (t-self.d)))
+            self.s[t + 1] = self.s[t] \
+                - self.lamda * self.s[t] * (self.i[t] * (1- self.beta) + self.e[t])
+            self.e[t + 1] = self.e[t] \
+                + self.lamda * self.s[t] * (self.i[t] * (1-self.beta) + self.e[t]) \
+                            - self.sigma * self.e[t]
             self.i[t + 1] = self.i[t] + self.sigma * self.e[t] - self.gamma * self.i[t]
             self.r[t + 1] = self.r[t] + self.gamma * self.i[t]
 
-    
-    def draw_curves(self):
+    def draw_curves(self, start_day=0, end_day=1000):
         self.s *= self.N
         self.e *= self.N
         self.i *= self.N
         self.r *= self.N
+
+        if end_day > self.T:
+            end_day = self.T
     
         fig, ax = plt.subplots(figsize=(10,6))
-        # ax.plot(self.s, c='b', lw=2, label='S')
-        ax.plot(self.e, c='orange', lw=2, label='E')
-        ax.plot(self.i, c='r', lw=2, label='I')
-        ax.plot(self.r, c='g', lw=2, label='R')
+        # ax.plot(self.s[start_day:end_day], c='b', lw=2, label='S')
+        ax.plot(self.e[start_day:end_day], c='orange', lw=2, label='E')
+        ax.plot(self.i[start_day:end_day], c='r', lw=2, label='I')
+        ax.plot(self.r[start_day:end_day], c='g', lw=2, label='R')
         ax.set_xlabel('Day',fontsize=15)
-        ax.set_ylabel('Infective Ratio', fontsize=15)
+        ax.set_ylabel('Number of people', fontsize=15)
         ax.grid(1)
         plt.xticks(fontsize=15)
         plt.yticks(fontsize=15)
         plt.legend()
         plt.show()
 
+
+class NIR(object):
+    """
+    build up an NIR model 
+    """
+    def __init__(self, T=12, initial_info=None):
+        # population
+        self.N = 14186500  # data from the website
+        # simuation Time / Day
+        self.T = T
+        # infective ratio
+        self.i = np.zeros([self.T])
+        # actual i
+        self.real_i = np.zeros([self.T])
+
+        # remove ratio
+        self.r = np.zeros([self.T])
+        # new infective number
+        self.dt_i = np.zeros([self.T])
+
+        # contact rate
+        self.lamda = 0.59  # = 感染者日均接触人数 * 接触传染概率 / 总人数
+        # initial infective people
+        self.i[0] = 1.0
+        for idx, each in enumerate(initial_info['confirmedCount']):
+            self.r[idx+8] = each
+
+        print(self.r)
+
+    def deduce(self):
+        
+        for t in range(8, 8+9):
+            self.i[t-8] = self.r[t+1]-self.r[t] 
+        for t in range(8+9-1, self.T-10):
+            self.dt_i[t+1]=self.lamda*(self.i[t])/(1-self.lamda)
+            self.i[t+1]=self.dt_i[t+1]/self.lamda
+        for t in range(8, self.T-10):
+            self.r[t+10] = self.i[t+1] + self.r[t+9]
+
+
+
+    
+    def draw_curves(self):
+    
+        fig, ax = plt.subplots(figsize=(10,6))
+
+        
+        ax.plot(self.i, c='r', lw=2, label='I')
+        ax.plot(self.r, c='g', lw=2, label='R')
+        ax.set_xlabel('Day',fontsize=15)
+        ax.set_ylabel('Number of People', fontsize=15)
+        ax.grid(1)
+        plt.xticks(fontsize=15)
+        plt.yticks(fontsize=15)
+        plt.legend()
+        plt.show()
+
+
 def train_process(model, gt):
     def aim(Phen):
         # ld = Phen[:, [0]] # 取出第1列，得到所有个体的第1个自变量
         # gm = Phen[:, [1]] # 取出第2列，得到所有个体的第2个自变量
         fits = np.zeros((len(Phen),1))  # 所有个体的健康程度评估
+        # print(Phen)
         for idx in range(len(Phen)):
-            model.lamda = Phen[idx][0] 
-            model.gamma = Phen[idx][1] 
+            model.omiga = Phen[idx][1] 
+            model.gamma = Phen[idx][0]
+            # model.beta = Phen[idx][2]
+            model.d = Phen[idx][2]
+             
             model.deduce()
             # print(np.array(model.i * model.N))
-            exam_day = 50
-            infective_fitness = residual_square(
-                np.array(model.i[exam_day:exam_day+12] * model.N),  np.array(gt['confirmedCount']))
-            recov_fitness = residual_square(
-                np.array(model.r[exam_day: exam_day+12] * model.N),  np.array(gt['deadCount']+gt['curedCount']))
+            exam_day = int(Phen[idx][3])
+
+            model_preds_i = model.i[exam_day:exam_day+12] * model.N
+            gt_i = np.array(gt['confirmedCount'])
+            model_preds_r = model.r[exam_day:exam_day+12] * model.N
+            gt_r = np.array(gt['deadCount']+gt['curedCount'])
+
+            infective_fitness = residual_square(model_preds_i,  gt_i)
+            recov_fitness = residual_square(model_preds_r,  gt_r)
             
             fits[idx] = infective_fitness + recov_fitness
-       
+        print(model_preds_i, gt_i)
+        # print(fits)
         return fits
           
 
     # settings
-    lamda = [0, 1]                   # 自变量范围
+    omiga = [0, 1]                   # 自变量范围
     gamma = [0, 1]
+    # beta = [0, 1]
+    d = [0, 100]
+    exam_d = [10, 60]
 
-    b1 = [0, 0]                    # 自变量边界, 1 表示包含边界， 0 表示不包含边界
+    b1 = [0, 0]                  # 自变量边界, 1 表示包含边界， 0 表示不包含边界
     b2 = [0, 0]
-    varTypes = np.array([0, 0])       # 自变量的类型，0表示连续，1表示离散
+    # b3 = [0, 0]
+    b4 = [0, 0]
+    b5 = [1, 1]
+    varTypes = np.array([0, 0, 0, 0])       # 自变量的类型，0表示连续，1表示离散
     Encoding = 'BG'                # 'BG'表示采用二进制/格雷编码
-    codes = [1, 1]                    # 变量的编码方式，2个变量均使用格雷编码
-    precisions =[6, 6]                # 变量的编码精度
-    scales = [0, 0]                   # 采用算术刻度
-    ranges=np.vstack([lamda, gamma]).T       # 生成自变量的范围矩阵
-    borders=np.vstack([b1, b2]).T      # 生成自变量的边界矩阵
+    codes = [1, 1, 1, 1]                    # 变量的编码方式，2个变量均使用格雷编码
+    precisions =[6, 6, 6, 6]                # 变量的编码精度
+    scales = [0, 0, 0, 0]                   # 采用算术刻度
+    ranges=np.vstack([gamma, omiga, d, exam_d]).T       # 生成自变量的范围矩阵
+    borders=np.vstack([b2, b1, b4, b5]).T      # 生成自变量的边界矩阵
 
     
     # params of GA
-    NIND = 40                     # 种群个体数目
-    MAXGEN = 25                 # 最大遗传代数
+    NIND = 400                     # 种群个体数目
+    MAXGEN = 100                 # 最大遗传代数
     maxormins = [1]   # 最小化目标函数， 元素为-1表示最大化目标函数
     FieldD = ea.crtfld(Encoding,varTypes,
                         ranges, borders,precisions,codes,scales) # 调用函数创建区域描述器
@@ -237,8 +318,10 @@ def train_process(model, gt):
         print(opt_variable[0, i])
     print('用时: ', end_time - start_time, '秒')
     
-    model.lamda = opt_variable[0, 0]
-    model.gamma = opt_variable[0, 1]
+    model.omiga = opt_variable[0, 1]
+    model.gamma = opt_variable[0, 0]
+    # model.beta = opt_variable[0, 2]
+    model.d = opt_variable[0, 2]
     model.deduce()
     model.draw_curves()
 
@@ -260,7 +343,7 @@ if __name__ == '__main__':
     data_day = data.groupby(by=['time']).head(1).reset_index(drop=True)
     print(data_day)
 
-    model = SEIR(T=110)
+    model = SEIR(T=80)
     # model.deduce()
     # fitness = residual_square(np.array(model.i), np.array(data_day['confirmedCount']))
     # model.draw_curves()
