@@ -3,3 +3,6 @@ __pycache__
 19_nCoV_clean_data
 help.py
 test.py
+docs/*.*
+
+!/docs/report.pdf
