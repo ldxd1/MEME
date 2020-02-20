@@ -12,6 +12,7 @@ import datetime
 import json
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn
 import geatpy as ea
 from utils import residual_square
 import math
@@ -235,9 +236,9 @@ def train_process(model, gt):
             # print(np.array(model.i * model.N))
             exam_day = int(Phen[idx][3])
 
-            model_preds_i = model.i[exam_day:exam_day+12] * model.N
+            model_preds_i = model.i[exam_day:exam_day+len(gt)] * model.N
             gt_i = np.array(gt['confirmedCount'])
-            model_preds_r = model.r[exam_day:exam_day+12] * model.N
+            model_preds_r = model.r[exam_day:exam_day+len(gt)] * model.N
             gt_r = np.array(gt['deadCount']+gt['curedCount'])
 
             infective_fitness = residual_square(model_preds_i,  gt_i)
@@ -343,7 +344,7 @@ if __name__ == '__main__':
     data_day = data.groupby(by=['time']).head(1).reset_index(drop=True)
     print(data_day)
 
-    model = SEIR(T=80)
+    model = SEIR(T=100)
     # model.deduce()
     # fitness = residual_square(np.array(model.i), np.array(data_day['confirmedCount']))
     # model.draw_curves()

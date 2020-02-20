@@ -1,5 +1,5 @@
 
-import geatpy as ea
+
 import numpy as np
 import math
 

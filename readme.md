@@ -5,6 +5,12 @@ MEME: The 19 nCov virus project
 患病人数资料由这个项目获取
 https://github.com/globalcitizen/2019-wuhan-coronavirus-data
 
+由于网络原因，同步如下：
+https://gitee.com/victordefoe/wuhan-coronavirus-data/
+
+可以git clone 上述链接 到19_nCoV_data文件夹下
+
+
 感谢 Wang Peng, Northwestern Polytechnical University 的贡献
 
 requirments

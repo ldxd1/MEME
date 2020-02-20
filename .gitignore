@@ -4,5 +4,6 @@ __pycache__
 help.py
 test.py
 docs/*.*
+result1.svg
 
 !/docs/report.pdf
