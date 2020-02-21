@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import seaborn
 import geatpy as ea
 from utils import residual_square
+import utils
 import math
 
 def rough_data_clean():
@@ -94,9 +95,9 @@ def detail_data_clean(prov_shortname,cityname):
 
 
     
-class SEIR(object):
+class E_SEIR(object):
     """
-    build up an SEIR model for 19_nCoV plague,help with projects following:
+    build up an E-SEIR model for 19_nCoV plague, help with projects following:
     https://github.com/XuelongSun/Dynamic-Model-of-Infectious-Diseases
     """
     def __init__(self, T=12):
@@ -163,61 +164,7 @@ class SEIR(object):
         plt.show()
 
 
-class NIR(object):
-    """
-    build up an NIR model 
-    """
-    def __init__(self, T=12, initial_info=None):
-        # population
-        self.N = 14186500  # data from the website
-        # simuation Time / Day
-        self.T = T
-        # infective ratio
-        self.i = np.zeros([self.T])
-        # actual i
-        self.real_i = np.zeros([self.T])
 
-        # remove ratio
-        self.r = np.zeros([self.T])
-        # new infective number
-        self.dt_i = np.zeros([self.T])
-
-        # contact rate
-        self.lamda = 0.59  # = 感染者日均接触人数 * 接触传染概率 / 总人数
-        # initial infective people
-        self.i[0] = 1.0
-        for idx, each in enumerate(initial_info['confirmedCount']):
-            self.r[idx+8] = each
-
-        print(self.r)
-
-    def deduce(self):
-        
-        for t in range(8, 8+9):
-            self.i[t-8] = self.r[t+1]-self.r[t] 
-        for t in range(8+9-1, self.T-10):
-            self.dt_i[t+1]=self.lamda*(self.i[t])/(1-self.lamda)
-            self.i[t+1]=self.dt_i[t+1]/self.lamda
-        for t in range(8, self.T-10):
-            self.r[t+10] = self.i[t+1] + self.r[t+9]
-
-
-
-    
-    def draw_curves(self):
-    
-        fig, ax = plt.subplots(figsize=(10,6))
-
-        
-        ax.plot(self.i, c='r', lw=2, label='I')
-        ax.plot(self.r, c='g', lw=2, label='R')
-        ax.set_xlabel('Day',fontsize=15)
-        ax.set_ylabel('Number of People', fontsize=15)
-        ax.grid(1)
-        plt.xticks(fontsize=15)
-        plt.yticks(fontsize=15)
-        plt.legend()
-        plt.show()
 
 
 def train_process(model, gt):
@@ -245,7 +192,7 @@ def train_process(model, gt):
             recov_fitness = residual_square(model_preds_r,  gt_r)
             
             fits[idx] = infective_fitness + recov_fitness
-        print(model_preds_i, gt_i)
+        # print(model_preds_i, gt_i)
         # print(fits)
         return fits
           
@@ -328,6 +275,42 @@ def train_process(model, gt):
 
     return opt_variable[0]
 
+def get_evaluation(model, fit_data, pre_gt, T=100):
+    assert T >= 2 * len(fit_data+pre_gt), 'Should set a more long period'
+
+    opt_vars = train_process(model, fit_data) # [gamma, omiga, d, exam_day]
+
+
+    test_model = E_SEIR(T=T)
+    test_model.gamma = opt_vars[0]
+    test_model.omiga = opt_vars[1]
+    test_model.d = opt_vars[2]
+    exam_day = opt_vars[3]
+    exam_day = int(exam_day)+len(fit_data)
+
+
+    test_model.deduce()
+    test_model.draw_curves()
+
+    pre_model_i = test_model.i[exam_day: exam_day+len(pre_gt)]
+    pre_model_r = test_model.r[exam_day: exam_day+len(pre_gt)]
+    pre_gt_i = np.array(pre_gt['confirmedCount'])
+    pre_gt_r = np.array(pre_gt['deadCount']+ pre_gt['curedCount'])
+
+    i_error = utils.related_error_rate(pre_model_i, pre_gt_i)
+    r_error = utils.related_error_rate(pre_model_r, pre_gt_r)
+
+    print('误差率---  感染者误差率:{}, 移除者误差率:{}'.format(i_error, r_error))
+    print(pre_gt_i, pre_model_i)
+
+
+
+
+
+    
+
+
+
 def get_R0(t, Yt, Tg, Ti):
     # t: 初始病发至今，某一时刻
     # Yt：t时刻对应病患数
@@ -342,20 +325,24 @@ if __name__ == '__main__':
     # only save the data on day
     data['time'] = data['time'].dt.date
     data_day = data.groupby(by=['time']).head(1).reset_index(drop=True)
-    print(data_day)
 
-    model = SEIR(T=100)
+    # confirmed count = accumulated - removed
+    data_day['confirmedCount'] = data_day['confirmedCount'] \
+        - (data_day['curedCount']+data_day['deadCount'])
+
+    # 提前n天划分数据集
+    n = 7
+    train_day = data_day.iloc[:-n]
+    test_day = data_day.iloc[-n:]
+    print(train_day)
+
+    model = E_SEIR(T=100)
+
+    get_evaluation(model, train_day, test_day)
     # model.deduce()
     # fitness = residual_square(np.array(model.i), np.array(data_day['confirmedCount']))
     # model.draw_curves()
-    opt_vars = train_process(model, data_day)
-
-    # test_model = SEIR(T=110)
-    # test_model.lamda = opt_vars[0]
-    # test_model.gamma = opt_vars[1]
-    # test_model.deduce()
-    # test_model.draw_curves()
-
+    
     R0 = get_R0(40, 572, 7, 1)
     print('基本再生指数：', R0)
     
