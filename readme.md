@@ -13,7 +13,7 @@ https://gitee.com/victordefoe/wuhan-coronavirus-data/
 
 感谢 Wang Peng, Northwestern Polytechnical University 的贡献
 
-# requirments
+### requirments
 （ 用使的Python 平台一些开源包）
 geatpy
 pandas
@@ -22,7 +22,7 @@ numpy
 json
 
 
-### 理论  
+# 理论  
 基于SEIR 模型
 改进
 
