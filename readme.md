@@ -13,9 +13,14 @@ https://gitee.com/victordefoe/wuhan-coronavirus-data/
 
 感谢 Wang Peng, Northwestern Polytechnical University 的贡献
 
-requirments
+# requirments
 （ 用使的Python 平台一些开源包）
 geatpy
+pandas
+matplotlib
+numpy
+json
+
 
 ### 理论  
 基于SEIR 模型
@@ -27,5 +32,8 @@ geatpy
 * 取潜伏期平均日7日计算
 * 使用带参数的s型函数拟合传染率的下降规律，来模拟日益完善的防疫力量
 * 用演化计算优化拟合参数，结果显示目前趋势相当于模型发病前36天的趋势
+
+# 论文
+技术细节和相关论文说明报告已经更新，请看'docs/report.pdf'
 
 

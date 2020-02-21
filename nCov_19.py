@@ -12,7 +12,6 @@ import datetime
 import json
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn
 import geatpy as ea
 from utils import residual_square
 import utils
